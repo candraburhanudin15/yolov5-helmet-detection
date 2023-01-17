@@ -1,0 +1,354 @@
+import streamlit as st
+import torch
+import numpy as np
+import os
+import cv2
+import datetime as dt
+import time
+
+def RTSP_input(compute, 
+               conf_thres, 
+               iou_thres, 
+               custom_model, 
+               save_result, 
+               detect_class_name,
+               crop_detection
+               ):
+    st.subheader("📟 RTSP Input")
+    st.caption(
+        "isi alamat RTSP untuk mulai mendeteksi objek, dibutuhkan koneksi internet untuk mulai proses deteksi."
+    )
+    input_rtsp_url = st.text_input(
+        "URL RTSP /IP Cam /IP Tv /m3u8 file", "https://atcs-dishub.bandung.go.id:1990/DjuandaBarat/stream.m3u8"
+    )
+    col1, col2, col3 = st.columns([3, 3, 10], gap="small")
+    with col1:
+        rtsp_predict_button = st.button("mulai proses")
+    with col2:
+        rtsp_stop_button = st.button("stop proses")
+    with col3:
+        pass
+    prev_frame_time = 0
+    vid_stream = cv2.VideoCapture(input_rtsp_url)
+    frame_window = st.image([])
+    output_detect_path = r"runs/detect_video"
+    count_withhelmet = 0
+    count_withouthelmet = 0
+    if not os.path.exists(output_detect_path): os.makedirs(output_detect_path)
+    if input_rtsp_url is not None and rtsp_predict_button:
+        fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
+        date = dt.datetime.now()
+        formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
+        if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (640, 480))
+        # proses perulangan deteksi
+        while True:
+            got_frame, frame = vid_stream.read()
+            if got_frame:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.resize(frame, (640, 480))
+                results = custom_model(frame)
+                if crop_detection == "yes ✅":
+                    results.crop(save=True) 
+                else : pass
+                # optimization model
+                device = torch.device("cuda" if compute == "CUDA" else "cpu")
+                custom_model.to(device)
+                custom_model.conf = conf_thres  # confidence threshold (0-1)
+                custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
+                if detect_class_name == "pakai helm, tanpa helm":
+                    custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
+                elif detect_class_name == "pakai helm":
+                    custom_model.classes = 0
+                elif detect_class_name == "tanpa helm":
+                    custom_model.classes = 1
+                # menambahkan informasi fps
+                font = cv2.FONT_HERSHEY_DUPLEX
+                new_frame_time = time.time()
+                fps = 1 / (new_frame_time - prev_frame_time)
+                prev_frame_time = new_frame_time
+                time_text = dt.datetime.now().strftime("%c")
+                fps_text = "FPS:{:.1f}".format(fps)
+                table_results = results.pandas().xyxy[0]
+                
+                # if 'pakai helm' in table_results["name"].values: 
+                #     count_withhelmet = table_results["name"].value_counts()['pakai helm']
+                # elif 'tanpa helm' in table_results["name"].values: 
+                #     count_withouthelmet = table_results["name"].value_counts()['tanpa helm']
+           
+                cv2.putText(frame, time_text, (8, 40), font, 0.50, (255,255,255), thickness=1)
+                cv2.putText(frame, fps_text, (8, 60), font, 0.50, (255,255,255), thickness=1)
+                # cv2.putText(frame, 'menggunakan helm : ' + str(count_withhelmet), (8, 80), font, 0.50, (255,255,255), thickness=1)
+                # cv2.putText(frame, 'tidak menggunakan helm : ' + str(count_withouthelmet), (8, 100), font, 0.50, (255,255,255), thickness=1)
+               
+                render = np.squeeze(results.render())
+                frame_window.image(render)
+                if save_result == "yes ✅":
+                    out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
+                else : pass
+            elif rtsp_stop_button:
+                break
+            else:
+                st.error('HTTP Error 404: Not Found')
+                break
+        vid_stream.release()
+
+def video_input(compute, 
+                conf_thres, 
+                iou_thres, 
+                custom_model,
+                save_result, 
+                detect_class_name,
+                crop_detection):
+    st.subheader("🎦 Video Input")
+    st.write("silahkan mengunggah video dengan ketentuan tidak lebih dari 10MB untuk mempercepat proses unggah dan proses deteksi. format video yang didukung yaitu MP4, MPEG, MOV, M4V.")
+    upload_video = st.file_uploader("upload 1 Video untuk memulai deteksi objek", type=["mp4", "mpeg", "mov","m4v"])
+    
+    newpath = r"runs/video_upload"
+    if not os.path.exists(newpath): os.makedirs(newpath) 
+    if upload_video != None:
+        with open(os.path.join("runs/video_upload", upload_video.name), "wb") as f:
+            f.write(upload_video.getbuffer())
+        st.success("File saved")
+        video_open = open("runs/video_upload/{}".format(upload_video.name), "rb")
+        video_bytes = video_open.read()
+        st.video(video_bytes)
+        st.caption("Details Video")
+        video_details = {"File Name": upload_video.name, "File Type": upload_video.type}
+        st.write(video_details)
+        col1, col2, col3 = st.columns([3, 3, 5], gap="small")
+        with col1:
+            predict_video_button = st.button("mulai proses video!")
+        with col2:
+            predict__stop_video_button = st.button("stop proses video!")
+        with col3:
+            pass
+        prev_frame_time = 0
+        frame_windowvideo = st.image([])
+        output_detect_path = r"runs/detect_video"
+        if not os.path.exists(output_detect_path): os.makedirs(output_detect_path)
+        if predict_video_button:
+            vid_stream = cv2.VideoCapture("runs/video_upload/{}".format(upload_video.name))
+            fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
+            date = dt.datetime.now()
+            formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
+            if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (640, 480))
+            while True:
+                got_frame, frame = vid_stream.read()
+                if got_frame:
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = cv2.resize(frame, (640, 480))
+                    results = custom_model(frame)
+                    device = torch.device("cuda" if compute == "CUDA" else "cpu")
+                    custom_model.to(device)
+                    if crop_detection == "yes ✅":
+                        results.crop(save=True) 
+                    else : pass
+                    # optimization model
+                    custom_model.conf = conf_thres  # confidence threshold (0-1)
+                    custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
+                    if detect_class_name == "pakai helm, tanpa helm":
+                        custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
+                    elif detect_class_name == "pakai helm":
+                        custom_model.classes = 0
+                    elif detect_class_name == "tanpa helm":
+                        custom_model.classes = 1
+
+                    # menambahkan informasi fps
+                    font = cv2.FONT_HERSHEY_DUPLEX
+                    new_frame_time = time.time()
+                    fps = 1 / (new_frame_time - prev_frame_time)
+                    prev_frame_time = new_frame_time
+                    fps_text = "FPS:{:.1f}".format(fps)
+                    cv2.putText(frame, fps_text, (20, 50), font, 1, (255, 255, 255), 1)
+                    
+                    render = np.squeeze(results.render())
+                    frame_windowvideo.image(render)
+                    if save_result == "yes ✅":
+                        out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
+                    else : pass
+                   
+                elif predict__stop_video_button:
+                    break
+                else:
+                    st.info('video telah sampai batas akhir pemutaran')
+                    break
+            vid_stream.release()
+            out.release()
+
+def image_input(compute, 
+                custom_model, 
+                save_result, 
+                detect_class_name):
+    st.subheader("🌅 Image Input")
+    st.write("silahkan mengunggah gambar dengan ketentuan tidak lebih dari 1MB per gamabar untuk mempercepat proses unggah dan proses deteksi. format gambar yang didukung yaitu JPG, JPEG, PNG.")
+    upload_image = st.file_uploader(
+        "Upload Image", type=["jpg", "jpeg", "png"], accept_multiple_files=True
+    )
+    newpath = r"runs/image_upload"
+    os.makedirs(newpath) if not os.path.exists(newpath) else st.write(
+        ""
+    )
+    col1, col2, col3 = st.columns([3, 3, 2], gap="small")
+    for image in upload_image:
+        if image != None:
+            with open(os.path.join("runs/image_upload", image.name), "wb") as f:
+                f.write(image.getbuffer())
+            # st.success("File saved")
+            with col1:
+                image_open = open("runs/image_upload/{}".format(image.name), "rb")
+                image_bytes = image_open.read()
+                st.image(image_bytes)
+
+            with col2:
+                results = custom_model(os.path.join("runs/image_upload", image.name))
+                device = torch.device("cuda" if compute == "CUDA" else "cpu")
+                custom_model.to(device)
+                if detect_class_name == "pakai helm, tanpa helm":
+                    custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
+                elif detect_class_name == "pakai helm":
+                    custom_model.classes = 0
+                elif detect_class_name == "tanpa helm":
+                    custom_model.classes = 1
+                st.image(np.squeeze(results.render()))
+            with col3:
+                st.info("Nama FIle : {}".format(image.name))
+                if save_result == "yes ✅":
+                    results.save()
+                    st.success("output saved")
+                else:
+                    pass
+                # filter menjumlahkan hasil deteksi
+                table_results = results.pandas().xyxy[0]
+                if "pakai helm" in table_results["name"].values:
+                    count_withhelmet = table_results["name"].value_counts()["pakai helm"]
+                    st.metric(label="menggunakan Helm", value=count_withhelmet)
+                else:
+                    st.metric(label="menggunakan Helm", value="-")
+
+                if "tanpa helm" in table_results["name"].values:
+                    count_withouthelmet = table_results["name"].value_counts()["tanpa helm"]
+                    st.metric(label="tidak menggunakan Helm", value=count_withouthelmet)
+                else:
+                    st.metric(label="tidak menggunakan Helm", value="-")
+        else:
+            break
+
+def main():
+    custom_css = """
+        <style>
+        footer {visibility: hidden;}
+        .css-1vq4p4l {padding: 4rem 1rem 1.5rem;}
+        .st-aq {padding-left: 6px;}
+        .st-ap {padding-bottom: 6px;}
+        .st-ao {padding-right: 6px;}
+        .st-an {padding-top: 6px;}
+        .css-172bvgw{gap: 0;}
+        .css-1xarl3l .css-50ug3q {justify-content: center;}
+        .css-1xarl3l {
+            font-size: 14px;
+            background-color: #31333f;
+            color: white;
+            border-radius: 50%;
+            position: relative;
+            padding: 10px;
+            margin: 0 40% 0 40%;
+            font-weight: bold;}
+        .css-163ttbj{
+            box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+            background: rgb(226,239,255);
+            background: linear-gradient(146deg, rgba(226,239,255,1) 0%, rgba(226,227,249,1) 67%, rgba(194,200,254,1) 100%);}
+        .css-1629p8f h1 {
+            padding: 26px 15px 26px 15px;
+            background: rgb(226,239,255);
+            background: linear-gradient(292deg, rgba(226,239,255,1) 0%, rgba(226,227,249,1) 67%, rgba(194,200,254,1) 100%);
+            border-radius: 10px;}
+        .css-12oz5g7 {max-width: 54rem;}
+        .css-ocqkz7 img {
+            border-radius: 5px;
+            box-shadow: rgb(199 204 253 / 50%) 0px 7px 29px 0px;}
+        .css-ocqkz7 {
+            background-color: #f0f2f66e;
+            padding: 10px;
+            border-radius: 10px;}
+        .css-1h99123 gap: 5px;}
+        </style>
+        """
+    st.markdown(custom_css, unsafe_allow_html=True)
+    # - -Side Bar
+    st.sidebar.header("🛢️ Konfigurasi Model")
+    type_src = st.sidebar.selectbox(
+        "pilih tipe file input deteksi", ("🌅Image", "📟RTSP", "🎦Video")
+    )
+    detect_class_name = st.sidebar.selectbox(
+        "pilih class spesifik untuk proses deteksi",
+        (
+            "pakai helm, tanpa helm",
+            "pakai helm",
+            "tanpa helm",
+        ),
+    )
+    st.sidebar.caption("class terpilih : {}".format(detect_class_name))
+    if type_src == "Image":
+        pass
+    else:
+        conf_thres = st.sidebar.slider(
+            "Confidence Threshold", min_value=0.0, max_value=1.0, value=0.5
+        )
+        st.sidebar.write("confidence set :", conf_thres)
+        iou_thres = st.sidebar.slider(
+            "Iou Threshold", min_value=0.0, max_value=1.0, value=0.5
+        )
+        st.sidebar.write("Iou set :", iou_thres)
+
+    save_result = st.sidebar.radio("Simpan Hasil Deteksi ?", ("yes ✅", "no ❌"))
+    if type_src != 'Image':
+        crop_detection = st.sidebar.radio("Simpan Potongan Gambar ?", ("yes ✅", "no ❌"))
+    else:
+        pass
+    if torch.cuda.is_available():
+        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU", "CUDA"))
+    else:
+        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU"))
+    # - - end Sidebar
+
+    # load model
+    custom_model = torch.hub.load(
+        './',
+        "custom",
+        path="models/best.pt",
+        force_reload=True,
+        source="local"
+    )
+
+    # type input data parameter 
+    st.title("Deteksi Helm Kendaraan Bermotor")
+    if type_src == "🌅Image":
+        image_input(compute, 
+                    custom_model, 
+                    save_result, 
+                    detect_class_name)
+    elif type_src == "📟RTSP":
+        RTSP_input(compute, 
+                   conf_thres, 
+                   iou_thres,
+                   custom_model, 
+                   save_result, 
+                   detect_class_name,
+                   crop_detection)
+    elif type_src == "🎦Video":
+        video_input(compute, 
+                    conf_thres, 
+                    iou_thres, 
+                    custom_model,
+                    save_result, 
+                    detect_class_name,
+                    crop_detection)
+    else:
+        st.subheader("silahkan pilih terlebih dahulu jenis tipe file input di selectbox sidebar")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except SystemExit:
+        pass
