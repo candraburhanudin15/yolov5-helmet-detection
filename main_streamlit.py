@@ -10,6 +10,9 @@ import time
 import pafy 
 from urllib.parse import urlparse
 
+# load model
+custom_model = "models/best.pt" 
+
 def URL_input(compute, 
                conf_thres, 
                iou_thres, 
@@ -287,9 +290,6 @@ def main():
     else:
         compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
     # - - end Sidebar
-
-    # load model
-    custom_model = "models/best.pt" 
 
     # type input data parameter 
     st.title("Helmet Detection Application Dashboard")
