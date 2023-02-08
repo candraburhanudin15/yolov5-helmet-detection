@@ -10,9 +10,6 @@ import time
 import pafy 
 from urllib.parse import urlparse
 
-# load model
-custom_model = "models/best.pt" 
-
 def URL_input(compute, 
                conf_thres, 
                iou_thres, 
@@ -40,10 +37,8 @@ def URL_input(compute,
     else:
         pass
     vid_stream = cv2.VideoCapture(input_livevideo_url)
-    output_detect_path = r"runs/detect_video"
     count_withhelmet = 0
     count_withouthelmet = 0
-    if not os.path.exists(output_detect_path): os.makedirs(output_detect_path)
     if input_livevideo_url is not None and livevideo_predict_button:
         fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
         date = dt.datetime.now()
@@ -291,6 +286,8 @@ def main():
         compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
     # - - end Sidebar
 
+    # load model
+    custom_model = torch.hub.load('ultralytics/yolov5', 'custom', path='models/best.pt', force_reload=True)
     # type input data parameter 
     st.title("Helmet Detection Application Dashboard")
     if type_src == "🌅Image":
