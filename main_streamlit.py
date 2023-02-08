@@ -289,13 +289,7 @@ def main():
     # - - end Sidebar
 
     # load model
-    custom_model = torch.hub.load(
-        "/",
-        "custom",
-        path="models/best.pt",
-        force_reload=True,
-        source="local",
-    )
+    custom_model = "models/best.pt" 
 
     # type input data parameter 
     st.title("Helmet Detection Application Dashboard")
