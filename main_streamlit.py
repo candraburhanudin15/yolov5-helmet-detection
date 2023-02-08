@@ -1,42 +1,53 @@
 import streamlit as st
 import torch
+import pandas as pd
 import numpy as np
+import matplotlib as plt
 import os
 import cv2
 import datetime as dt
 import time
+import pafy 
+from urllib.parse import urlparse
 
-def RTSP_input(compute, 
+def URL_input(compute, 
                conf_thres, 
                iou_thres, 
                custom_model, 
-               detect_class_name
+               save_result, 
+               detect_class_name,
+               crop_detection
                ):
     st.subheader("📟 Live Stream")
     st.caption(
-        "isi alamat RTSP untuk mulai mendeteksi objek, dibutuhkan koneksi internet untuk mulai proses deteksi."
+        "isi alamat URL untuk mulai mendeteksi objek, dibutuhkan koneksi internet untuk mulai proses deteksi."
     )
-    input_rtsp_url = st.text_input(
-        "URL RTSP /IP Cam /IP Tv /m3u8 file", "https://atcs-dishub.bandung.go.id:1990/DjuandaBarat/stream.m3u8"
+    input_livevideo_url = st.text_input(
+        "URL IP Cam /IP Tv /m3u8 /Youtube Live", "https://atcs-dishub.bandung.go.id:1990/CihampelasUtara/stream.m3u8"
     )
     col1, col2, col3 = st.columns([3, 3, 10], gap="small")
     with col1:
-        rtsp_predict_button = st.button("mulai proses")
+        livevideo_predict_button = st.button("mulai proses")
     with col2:
-        rtsp_stop_button = st.button("stop proses")
+        livevideo_stop_button = st.button("stop proses")
     with col3:
         pass
     prev_frame_time = 0
-    vid_stream = cv2.VideoCapture(input_rtsp_url)
     frame_window = st.image([])
+    if urlparse(input_livevideo_url).hostname in ('www.youtube.com', 'youtube.com', 'youtu.be'):
+        input_livevideo_url = pafy.new(input_livevideo_url).getbest(preftype="mp4").url
+    else:
+        pass
+    vid_stream = cv2.VideoCapture(input_livevideo_url)
     output_detect_path = r"runs/detect_video"
     count_withhelmet = 0
     count_withouthelmet = 0
     if not os.path.exists(output_detect_path): os.makedirs(output_detect_path)
-    if input_rtsp_url is not None and rtsp_predict_button:
+    if input_livevideo_url is not None and livevideo_predict_button:
         fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
         date = dt.datetime.now()
         formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
+        if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (640, 480))
         # proses perulangan deteksi
         while True:
             got_frame, frame = vid_stream.read()
@@ -44,6 +55,14 @@ def RTSP_input(compute,
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame = cv2.resize(frame, (640, 480))
                 results = custom_model(frame)
+                table_results = results.pandas().xyxy[0]
+                if crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values:
+                    results.crop(save=True) 
+                elif crop_detection == "yes ✅" and 'pakai helm' in table_results["name"].values:
+                    results.crop(save=True)
+                elif crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values and 'pakai helm' in table_results["name"].values:
+                    results.crop(save=True)
+                else: pass
                 # optimization model
                 device = torch.device("cuda" if compute == "CUDA" else "cpu")
                 custom_model.to(device)
@@ -62,24 +81,25 @@ def RTSP_input(compute,
                 prev_frame_time = new_frame_time
                 time_text = dt.datetime.now().strftime("%c")
                 fps_text = "FPS:{:.1f}".format(fps)
-                table_results = results.pandas().xyxy[0]
-                
-                # if 'pakai helm' in table_results["name"].values: 
-                #     count_withhelmet = table_results["name"].value_counts()['pakai helm']
-                # elif 'tanpa helm' in table_results["name"].values: 
-                #     count_withouthelmet = table_results["name"].value_counts()['tanpa helm']
+            
+                if 'pakai helm' in table_results["name"].values: 
+                    count_withhelmet = table_results["name"].value_counts()['pakai helm']
+                elif 'tanpa helm' in table_results["name"].values: 
+                    count_withouthelmet = table_results["name"].value_counts()['tanpa helm']
            
                 cv2.putText(frame, time_text, (8, 40), font, 0.50, (255,255,255), thickness=1)
-                cv2.putText(frame, fps_text, (8, 60), font, 0.50, (255,255,255), thickness=1)
-                # cv2.putText(frame, 'menggunakan helm : ' + str(count_withhelmet), (8, 80), font, 0.50, (255,255,255), thickness=1)
-                # cv2.putText(frame, 'tidak menggunakan helm : ' + str(count_withouthelmet), (8, 100), font, 0.50, (255,255,255), thickness=1)
-               
+                cv2.putText(frame, 'object class 0 / frame : ' + str(count_withhelmet), (8, 60), font, 0.50, (255,255,255), thickness=1)
+                cv2.putText(frame, 'object class 1 / frame : ' + str(count_withouthelmet), (8, 80), font, 0.50, (255,255,255), thickness=1)
+                cv2.putText(frame, fps_text, (8, 100), font, 0.50, (255,255,255), thickness=1)
                 render = np.squeeze(results.render())
                 frame_window.image(render)
-            elif rtsp_stop_button:
+                if save_result == "yes ✅":
+                    out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
+                else : pass
+            elif livevideo_stop_button:
                 break
             else:
-                st.error('HTTP Error 404: Not Found')
+                st.error('HTTP Error 404: Not Found !')
                 break
         vid_stream.release()
 
@@ -87,17 +107,19 @@ def video_input(compute,
                 conf_thres, 
                 iou_thres, 
                 custom_model,
-                detect_class_name):
+                save_result, 
+                detect_class_name,
+                crop_detection):
     st.subheader("🎦 Video Input")
-    st.write("silahkan mengunggah video dengan ketentuan tidak lebih dari 10MB untuk mempercepat proses unggah dan proses deteksi. format video yang didukung yaitu MP4, MPEG, MOV, M4V.")
+    st.write("""silahkan mengunggah video dengan ketentuan tidak lebih dari 10MB untuk 
+            mempercepat proses unggah dan proses deteksi. format video yang didukung yaitu MP4, MPEG, MOV, M4V.""")
     upload_video = st.file_uploader("upload 1 Video untuk memulai deteksi objek", type=["mp4", "mpeg", "mov","m4v"])
-    
     newpath = r"runs/video_upload"
     if not os.path.exists(newpath): os.makedirs(newpath) 
     if upload_video != None:
         with open(os.path.join("runs/video_upload", upload_video.name), "wb") as f:
             f.write(upload_video.getbuffer())
-        st.success("File saved")
+        st.success("File Uploaded")
         video_open = open("runs/video_upload/{}".format(upload_video.name), "rb")
         video_bytes = video_open.read()
         st.video(video_bytes)
@@ -120,14 +142,23 @@ def video_input(compute,
             fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
             date = dt.datetime.now()
             formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
+            if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (960, 540))
             while True:
                 got_frame, frame = vid_stream.read()
                 if got_frame:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frame = cv2.resize(frame, (640, 480))
+                    frame = cv2.resize(frame, (960, 540)) #best resolution 640, 480
                     results = custom_model(frame)
+                    table_results = results.pandas().xyxy[0]
                     device = torch.device("cuda" if compute == "CUDA" else "cpu")
                     custom_model.to(device)
+                    if crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values:
+                        results.crop(save=True) 
+                    elif crop_detection == "yes ✅" and 'pakai helm' in table_results["name"].values:
+                        results.crop(save=True)
+                    elif crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values and 'pakai helm' in table_results["name"].values:
+                        results.crop(save=True)
+                    else: pass
                     # optimization model
                     custom_model.conf = conf_thres  # confidence threshold (0-1)
                     custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
@@ -148,7 +179,10 @@ def video_input(compute,
                     
                     render = np.squeeze(results.render())
                     frame_windowvideo.image(render)
-               
+                    if save_result == "yes ✅":
+                        out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
+                    else : pass
+                   
                 elif predict__stop_video_button:
                     break
                 else:
@@ -156,18 +190,19 @@ def video_input(compute,
                     break
             vid_stream.release()
 
+
 def image_input(compute, 
                 custom_model, 
+                save_result, 
                 detect_class_name):
     st.subheader("🌅 Image Input")
-    st.write("silahkan mengunggah gambar dengan ketentuan tidak lebih dari 1MB per gamabar untuk mempercepat proses unggah dan proses deteksi. format gambar yang didukung yaitu JPG, JPEG, PNG.")
+    st.write("""silahkan mengunggah gambar dengan ketentuan tidak lebih dari 1MB per gambar untuk mempercepat 
+            proses unggah dan proses deteksi. format gambar yang didukung yaitu JPG, JPEG, PNG.""")
     upload_image = st.file_uploader(
         "Upload Image", type=["jpg", "jpeg", "png"], accept_multiple_files=True
     )
     newpath = r"runs/image_upload"
-    os.makedirs(newpath) if not os.path.exists(newpath) else st.write(
-        ""
-    )
+    os.makedirs(newpath) if not os.path.exists(newpath) else st.write("")
     col1, col2, col3 = st.columns([3, 3, 2], gap="small")
     for image in upload_image:
         if image != None:
@@ -192,6 +227,11 @@ def image_input(compute,
                 st.image(np.squeeze(results.render()))
             with col3:
                 st.info("Nama FIle : {}".format(image.name))
+                if save_result == "yes ✅":
+                    results.save()
+                    st.success("output saved")
+                else:
+                    pass
                 # filter menjumlahkan hasil deteksi
                 table_results = results.pandas().xyxy[0]
                 if "pakai helm" in table_results["name"].values:
@@ -275,6 +315,11 @@ def main():
         )
         st.sidebar.write("Iou set :", iou_thres)
 
+    save_result = st.sidebar.radio("Simpan Hasil Deteksi ?", ("yes ✅", "no ❌"))
+    if type_src != 'Image':
+        crop_detection = st.sidebar.radio("Simpan Potongan Gambar ?", ("yes ✅", "no ❌"))
+    else:
+        pass
     if torch.cuda.is_available():
         compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU", "CUDA"))
     else:
@@ -283,31 +328,36 @@ def main():
 
     # load model
     custom_model = torch.hub.load(
-        './',
+        "yolov5/",
         "custom",
-        path="models/best.pt",
+        path="yolov5/runs/train/exp/weights/last.pt",
         force_reload=True,
-        source="local"
+        source="local",
     )
 
     # type input data parameter 
-    st.title("Deteksi Helm Kendaraan Bermotor")
+    st.title("Helmet Detection Application Dashboard")
     if type_src == "🌅Image":
         image_input(compute, 
                     custom_model, 
+                    save_result, 
                     detect_class_name)
     elif type_src == "📟Live Stream":
-        RTSP_input(compute, 
+        URL_input(compute, 
                    conf_thres, 
                    iou_thres,
                    custom_model, 
-                   detect_class_name)
+                   save_result, 
+                   detect_class_name,
+                   crop_detection)
     elif type_src == "🎦Video":
         video_input(compute, 
                     conf_thres, 
                     iou_thres, 
                     custom_model,
-                    detect_class_name)
+                    save_result, 
+                    detect_class_name,
+                    crop_detection)
     else:
         st.subheader("silahkan pilih terlebih dahulu jenis tipe file input di selectbox sidebar")
 
