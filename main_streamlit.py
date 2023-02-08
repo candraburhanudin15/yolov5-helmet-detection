@@ -290,9 +290,9 @@ def main():
 
     # load model
     custom_model = torch.hub.load(
-        "yolov5/",
+        "/",
         "custom",
-        path="yolov5/runs/train/exp/weights/last.pt",
+        path="models/best.pt",
         force_reload=True,
         source="local",
     )
