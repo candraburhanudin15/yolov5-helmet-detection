@@ -14,9 +14,7 @@ def URL_input(compute,
                conf_thres, 
                iou_thres, 
                custom_model, 
-               save_result, 
-               detect_class_name,
-               crop_detection
+               detect_class_name
                ):
     st.subheader("📟 Live Stream")
     st.caption(
@@ -47,7 +45,6 @@ def URL_input(compute,
         fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
         date = dt.datetime.now()
         formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
-        if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (640, 480))
         # proses perulangan deteksi
         while True:
             got_frame, frame = vid_stream.read()
@@ -56,13 +53,6 @@ def URL_input(compute,
                 frame = cv2.resize(frame, (640, 480))
                 results = custom_model(frame)
                 table_results = results.pandas().xyxy[0]
-                if crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values:
-                    results.crop(save=True) 
-                elif crop_detection == "yes ✅" and 'pakai helm' in table_results["name"].values:
-                    results.crop(save=True)
-                elif crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values and 'pakai helm' in table_results["name"].values:
-                    results.crop(save=True)
-                else: pass
                 # optimization model
                 device = torch.device("cuda" if compute == "CUDA" else "cpu")
                 custom_model.to(device)
@@ -93,9 +83,6 @@ def URL_input(compute,
                 cv2.putText(frame, fps_text, (8, 100), font, 0.50, (255,255,255), thickness=1)
                 render = np.squeeze(results.render())
                 frame_window.image(render)
-                if save_result == "yes ✅":
-                    out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
-                else : pass
             elif livevideo_stop_button:
                 break
             else:
@@ -107,9 +94,7 @@ def video_input(compute,
                 conf_thres, 
                 iou_thres, 
                 custom_model,
-                save_result, 
-                detect_class_name,
-                crop_detection):
+                detect_class_name):
     st.subheader("🎦 Video Input")
     st.write("""silahkan mengunggah video dengan ketentuan tidak lebih dari 10MB untuk 
             mempercepat proses unggah dan proses deteksi. format video yang didukung yaitu MP4, MPEG, MOV, M4V.""")
@@ -142,7 +127,6 @@ def video_input(compute,
             fourcc = cv2.VideoWriter_fourcc(*'XVID') #(*'MP42')
             date = dt.datetime.now()
             formatdate = date.strftime("%d-%m-%Y-jam-%H-%M-%S-")
-            if save_result == "yes ✅": out = cv2.VideoWriter('runs/detect_video/'+formatdate+'output.avi', fourcc, 24.0, (960, 540))
             while True:
                 got_frame, frame = vid_stream.read()
                 if got_frame:
@@ -152,13 +136,6 @@ def video_input(compute,
                     table_results = results.pandas().xyxy[0]
                     device = torch.device("cuda" if compute == "CUDA" else "cpu")
                     custom_model.to(device)
-                    if crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values:
-                        results.crop(save=True) 
-                    elif crop_detection == "yes ✅" and 'pakai helm' in table_results["name"].values:
-                        results.crop(save=True)
-                    elif crop_detection == "yes ✅" and 'tanpa helm' in table_results["name"].values and 'pakai helm' in table_results["name"].values:
-                        results.crop(save=True)
-                    else: pass
                     # optimization model
                     custom_model.conf = conf_thres  # confidence threshold (0-1)
                     custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
@@ -179,10 +156,6 @@ def video_input(compute,
                     
                     render = np.squeeze(results.render())
                     frame_windowvideo.image(render)
-                    if save_result == "yes ✅":
-                        out.write(cv2.cvtColor(render, cv2.COLOR_BGR2RGB))
-                    else : pass
-                   
                 elif predict__stop_video_button:
                     break
                 else:
@@ -192,8 +165,7 @@ def video_input(compute,
 
 
 def image_input(compute, 
-                custom_model, 
-                save_result, 
+                custom_model,
                 detect_class_name):
     st.subheader("🌅 Image Input")
     st.write("""silahkan mengunggah gambar dengan ketentuan tidak lebih dari 1MB per gambar untuk mempercepat 
@@ -227,11 +199,6 @@ def image_input(compute,
                 st.image(np.squeeze(results.render()))
             with col3:
                 st.info("Nama FIle : {}".format(image.name))
-                if save_result == "yes ✅":
-                    results.save()
-                    st.success("output saved")
-                else:
-                    pass
                 # filter menjumlahkan hasil deteksi
                 table_results = results.pandas().xyxy[0]
                 if "pakai helm" in table_results["name"].values:
@@ -314,16 +281,10 @@ def main():
             "Iou Threshold", min_value=0.0, max_value=1.0, value=0.5
         )
         st.sidebar.write("Iou set :", iou_thres)
-
-    save_result = st.sidebar.radio("Simpan Hasil Deteksi ?", ("yes ✅", "no ❌"))
-    if type_src != 'Image':
-        crop_detection = st.sidebar.radio("Simpan Potongan Gambar ?", ("yes ✅", "no ❌"))
-    else:
-        pass
     if torch.cuda.is_available():
-        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU", "CUDA"))
+        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
     else:
-        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU"))
+        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
     # - - end Sidebar
 
     # load model
@@ -340,24 +301,19 @@ def main():
     if type_src == "🌅Image":
         image_input(compute, 
                     custom_model, 
-                    save_result, 
                     detect_class_name)
     elif type_src == "📟Live Stream":
         URL_input(compute, 
                    conf_thres, 
                    iou_thres,
                    custom_model, 
-                   save_result, 
-                   detect_class_name,
-                   crop_detection)
+                   detect_class_name)
     elif type_src == "🎦Video":
         video_input(compute, 
                     conf_thres, 
                     iou_thres, 
                     custom_model,
-                    save_result, 
-                    detect_class_name,
-                    crop_detection)
+                    detect_class_name)
     else:
         st.subheader("silahkan pilih terlebih dahulu jenis tipe file input di selectbox sidebar")
 
