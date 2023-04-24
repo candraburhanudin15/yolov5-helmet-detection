@@ -73,9 +73,9 @@ def URL_input(compute,
                 fps_text = "FPS:{:.1f}".format(fps)
             
                 if 'no helmet' in table_results["name"].values: 
-                    count_withhelmet = table_results["name"].value_counts()['pakai helm']
+                    count_withhelmet = table_results["name"].value_counts()['wear a helmet']
                 elif 'wear a helmet' in table_results["name"].values: 
-                    count_withouthelmet = table_results["name"].value_counts()['tanpa helm']
+                    count_withouthelmet = table_results["name"].value_counts()['no helmet']
            
                 cv2.putText(frame, time_text, (8, 40), font, 0.50, (255,255,255), thickness=1)
                 cv2.putText(frame, 'object class 0 / frame : ' + str(count_withhelmet), (8, 60), font, 0.50, (255,255,255), thickness=1)
@@ -199,13 +199,13 @@ def image_input(compute,
                 st.info("Nama FIle : {}".format(image.name))
                 # filter menjumlahkan hasil deteksi
                 table_results = results.pandas().xyxy[0]
-                if "pakai helm" in table_results["name"].values:
+                if "wear a helmet" in table_results["name"].values:
                     count_withhelmet = table_results["name"].value_counts()["wear a helmet"]
                     st.metric(label="use a Helmet", value=count_withhelmet)
                 else:
                     st.metric(label="use a Helmet", value="-")
 
-                if "tanpa helm" in table_results["name"].values:
+                if "no helmet" in table_results["name"].values:
                     count_withouthelmet = table_results["name"].value_counts()["no helmet"]
                     st.metric(label="not wearing a helmet", value=count_withouthelmet)
                 else:
