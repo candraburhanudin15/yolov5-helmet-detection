@@ -289,7 +289,7 @@ def main():
 
     # load model
     custom_model = torch.hub.load(
-        "/",
+        "./",
         "custom",
         path="models/best.pt",
         force_reload=True,
