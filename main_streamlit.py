@@ -260,7 +260,7 @@ def main():
         "select the media type detection input", ("🌅Image", "📟Live Stream", "🎦Video")
     )
     detect_class_name = st.sidebar.selectbox(
-        "select a specific class for the detection process,
+        "select a specific class for the detection process,"
         (
             "wear a helmet, no helmet",
             "wear a helmet",
