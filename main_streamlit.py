@@ -18,16 +18,16 @@ def URL_input(compute,
                ):
     st.subheader("📟 Live Stream")
     st.caption(
-        "isi alamat URL untuk mulai mendeteksi objek, dibutuhkan koneksi internet untuk mulai proses deteksi."
+        "fill in the form with the URL address to start detecting objects, an internet connection is required to start the detection process"
     )
     input_livevideo_url = st.text_input(
         "URL IP Cam /IP Tv /m3u8 /Youtube Live", "https://atcs-dishub.bandung.go.id:1990/Cikutra/stream.m3u8"
     )
     col1, col2, col3 = st.columns([3, 3, 10], gap="small")
     with col1:
-        livevideo_predict_button = st.button("mulai proses")
+        livevideo_predict_button = st.button("start process")
     with col2:
-        livevideo_stop_button = st.button("stop proses")
+        livevideo_stop_button = st.button("stop process")
     with col3:
         pass
     prev_frame_time = 0
@@ -58,11 +58,11 @@ def URL_input(compute,
                 custom_model.to(device)
                 custom_model.conf = conf_thres  # confidence threshold (0-1)
                 custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
-                if detect_class_name == "pakai helm, tanpa helm":
-                    custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
-                elif detect_class_name == "pakai helm":
+                if detect_class_name == "wear a helmet, no helmet":
+                    custom_model.classes = None  # class 0 : wear a helmet, class 1: no helmet,
+                elif detect_class_name == "wear a helmet":
                     custom_model.classes = 0
-                elif detect_class_name == "tanpa helm":
+                elif detect_class_name == "no helmet":
                     custom_model.classes = 1
                 # menambahkan informasi fps
                 font = cv2.FONT_HERSHEY_DUPLEX
@@ -72,9 +72,9 @@ def URL_input(compute,
                 time_text = dt.datetime.now().strftime("%c")
                 fps_text = "FPS:{:.1f}".format(fps)
             
-                if 'pakai helm' in table_results["name"].values: 
+                if 'no helmet' in table_results["name"].values: 
                     count_withhelmet = table_results["name"].value_counts()['pakai helm']
-                elif 'tanpa helm' in table_results["name"].values: 
+                elif 'wear a helmet' in table_results["name"].values: 
                     count_withouthelmet = table_results["name"].value_counts()['tanpa helm']
            
                 cv2.putText(frame, time_text, (8, 40), font, 0.50, (255,255,255), thickness=1)
@@ -96,9 +96,8 @@ def video_input(compute,
                 custom_model,
                 detect_class_name):
     st.subheader("🎦 Video Input")
-    st.write("""silahkan mengunggah video dengan ketentuan tidak lebih dari 10MB untuk 
-            mempercepat proses unggah dan proses deteksi. format video yang didukung yaitu MP4, MPEG, MOV, M4V.""")
-    upload_video = st.file_uploader("upload 1 Video untuk memulai deteksi objek", type=["mp4", "mpeg", "mov","m4v"])
+    st.write("""upload videos with conditions no more than 10MB to speed up the upload process and the detection process. Supported video formats are MP4, MPEG, MOV, M4V.""")
+    upload_video = st.file_uploader("upload 1 Video to start object detection", type=["mp4", "mpeg", "mov","m4v"])
     newpath = r"runs/video_upload"
     if not os.path.exists(newpath): os.makedirs(newpath) 
     if upload_video != None:
@@ -113,9 +112,9 @@ def video_input(compute,
         st.write(video_details)
         col1, col2, col3 = st.columns([3, 3, 5], gap="small")
         with col1:
-            predict_video_button = st.button("mulai proses video!")
+            predict_video_button = st.button("start detection!")
         with col2:
-            predict__stop_video_button = st.button("stop proses video!")
+            predict__stop_video_button = st.button("stop detection!")
         with col3:
             pass
         prev_frame_time = 0
@@ -139,11 +138,11 @@ def video_input(compute,
                     # optimization model
                     custom_model.conf = conf_thres  # confidence threshold (0-1)
                     custom_model.iou = iou_thres  # NMS IoU threshold (0-1)
-                    if detect_class_name == "pakai helm, tanpa helm":
-                        custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
-                    elif detect_class_name == "pakai helm":
+                    if detect_class_name == "wear a helmet, no helmet":
+                        custom_model.classes = None  # class 0 : wear a helmet, class 1: no helmet,
+                    elif detect_class_name == "wear a helmet":
                         custom_model.classes = 0
-                    elif detect_class_name == "tanpa helm":
+                    elif detect_class_name == "no helmet":
                         custom_model.classes = 1
 
                     # menambahkan informasi fps
@@ -159,7 +158,7 @@ def video_input(compute,
                 elif predict__stop_video_button:
                     break
                 else:
-                    st.info('video telah sampai batas akhir pemutaran')
+                    st.info('the video has reached the end of the frame limit')
                     break
             vid_stream.release()
 
@@ -168,8 +167,7 @@ def image_input(compute,
                 custom_model,
                 detect_class_name):
     st.subheader("🌅 Image Input")
-    st.write("""silahkan mengunggah gambar dengan ketentuan tidak lebih dari 1MB per gambar untuk mempercepat 
-            proses unggah dan proses deteksi. format gambar yang didukung yaitu JPG, JPEG, PNG.""")
+    st.write("""upload images with conditions of no more than 1MB per image to speed up the upload process and the detection process. Supported image formats are JPG, JPEG, PNG.""")
     upload_image = st.file_uploader(
         "Upload Image", type=["jpg", "jpeg", "png"], accept_multiple_files=True
     )
@@ -190,11 +188,11 @@ def image_input(compute,
                 results = custom_model(os.path.join("runs/image_upload", image.name))
                 device = torch.device("cuda" if compute == "CUDA" else "cpu")
                 custom_model.to(device)
-                if detect_class_name == "pakai helm, tanpa helm":
-                    custom_model.classes = None  # class 0 : pakai helm, class 1: tanpa helm,
-                elif detect_class_name == "pakai helm":
+                if detect_class_name == "wear a helmet, no helmet":
+                    custom_model.classes = None  # class 0 : wear a helmet, class 1: no helmet,
+                elif detect_class_name == "wear a helmet":
                     custom_model.classes = 0
-                elif detect_class_name == "tanpa helm":
+                elif detect_class_name == "no helmet":
                     custom_model.classes = 1
                 st.image(np.squeeze(results.render()))
             with col3:
@@ -202,16 +200,16 @@ def image_input(compute,
                 # filter menjumlahkan hasil deteksi
                 table_results = results.pandas().xyxy[0]
                 if "pakai helm" in table_results["name"].values:
-                    count_withhelmet = table_results["name"].value_counts()["pakai helm"]
-                    st.metric(label="menggunakan Helm", value=count_withhelmet)
+                    count_withhelmet = table_results["name"].value_counts()["wear a helmet"]
+                    st.metric(label="use a Helmet", value=count_withhelmet)
                 else:
-                    st.metric(label="menggunakan Helm", value="-")
+                    st.metric(label="use a Helmet", value="-")
 
                 if "tanpa helm" in table_results["name"].values:
-                    count_withouthelmet = table_results["name"].value_counts()["tanpa helm"]
-                    st.metric(label="tidak menggunakan Helm", value=count_withouthelmet)
+                    count_withouthelmet = table_results["name"].value_counts()["no helmet"]
+                    st.metric(label="not wearing a helmet", value=count_withouthelmet)
                 else:
-                    st.metric(label="tidak menggunakan Helm", value="-")
+                    st.metric(label="not wearing a helmet", value="-")
         else:
             break
 
@@ -264,9 +262,9 @@ def main():
     detect_class_name = st.sidebar.selectbox(
         "pilih class spesifik untuk proses deteksi",
         (
-            "pakai helm, tanpa helm",
-            "pakai helm",
-            "tanpa helm",
+            "wear a helmet, no helmet",
+            "wear a helmet",
+            "no helmet",
         ),
     )
     st.sidebar.caption("class terpilih : {}".format(detect_class_name))
@@ -282,9 +280,9 @@ def main():
         )
         st.sidebar.write("Iou set :", iou_thres)
     if torch.cuda.is_available():
-        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
+        compute = st.sidebar.radio("computing hardware", ("CPU",))
     else:
-        compute = st.sidebar.radio("pilih jenis komputasi hardware", ("CPU",))
+        compute = st.sidebar.radio("computing hardware", ("CPU",))
     # - - end Sidebar
 
     # load model
@@ -315,7 +313,7 @@ def main():
                     custom_model,
                     detect_class_name)
     else:
-        st.subheader("silahkan pilih terlebih dahulu jenis tipe file input di selectbox sidebar")
+        st.subheader("select the media type detection type in the sidebar")
 
 
 if __name__ == "__main__":
