@@ -257,10 +257,10 @@ def main():
     # - -Side Bar
     st.sidebar.header("🛢️ Konfigurasi Model")
     type_src = st.sidebar.selectbox(
-        "pilih tipe file input deteksi", ("🌅Image", "📟Live Stream", "🎦Video")
+        "select the media type detection input", ("🌅Image", "📟Live Stream", "🎦Video")
     )
     detect_class_name = st.sidebar.selectbox(
-        "pilih class spesifik untuk proses deteksi",
+        "select a specific class for the detection process,
         (
             "wear a helmet, no helmet",
             "wear a helmet",
