@@ -255,7 +255,7 @@ def main():
         """
     st.markdown(custom_css, unsafe_allow_html=True)
     # - -Side Bar
-    st.sidebar.header("🛢️ Konfigurasi Model")
+    st.sidebar.header("🛢️ Model Configuration")
     type_src = st.sidebar.selectbox(
         "select the media type detection input", ("🌅Image", "📟Live Stream", "🎦Video")
     )
